@@ -49,18 +49,50 @@ String json_generator(const double &feuchte, const double &temperatur, const int
   return "{\"Luftfeuchte\": " + String(json_feuchte) + ", " + "\"Temperatur\": " + String(json_temperatur) + ", " + "\"Photostrom\": " +  String(widerstand) + "}";
 }
 
+//Beinhaltet die aktuellen Messwerte
+String json_string = "";
+
 void loop() {
-  // Wartezeit zwischen den Messungen.
-  delay(1000);
   
   //Sensoren Variablen
-  float feuchte;
-  float temperatur;
+  double feuchte = 0.0;
+  double temperatur = 0.0;
+  double widerstand = 0.0;
   
   //Serialport Variablen
   String serial_nachricht;
   char serial_char;
-  int widerstand;
+  
+  //Lese die Sensoren x mal aus
+  int anzahl_messungen = 5;
+  for (int i = 0; i < anzahl_messungen; i++){
+    
+    // Wartezeit zwischen den Messungen.
+    delay(500);
+
+    feuchte += dht.readHumidity();
+    temperatur += dht.readTemperature();
+    widerstand += analogRead(0);
+   
+    // Wenn das Auslesen Fehlschlägt so schreib die Meldung und versuch es nochmal.
+    if (isnan(feuchte) || isnan(temperatur)) {
+      if (SerialMethod == 0){
+          Serial.println(Fehlermeldung);
+      }
+      if (SerialMethod == 1){
+        BT.println(Fehlermeldung);
+      }
+        return;
+      }
+  }
+  
+  //Bestimme den Mittelwert
+  feuchte = feuchte/(double)anzahl_messungen;
+  temperatur = temperatur/(double)anzahl_messungen;
+  widerstand = widerstand/(double)anzahl_messungen;
+  
+  //Generiere das Json Objekt
+  json_string = json_generator(feuchte, temperatur, widerstand);
   
   if (SerialMethod == 0){
     while (Serial.available()){
@@ -77,27 +109,11 @@ void loop() {
   
   if (serial_nachricht != ""){
     if (serial_nachricht == "sensor_anfrage"){
-      
-      //Lese die Sensoren aus
-      feuchte = dht.readHumidity();
-      temperatur = dht.readTemperature();
-      widerstand = analogRead(0);
-      
-      // Wenn das Auslesen Fehlschlägt so schreib die Meldung und versuch es nochmal.
-      if (isnan(feuchte) || isnan(temperatur)) {
-        if (SerialMethod == 0){
-          Serial.println(Fehlermeldung);
-        }
-        if (SerialMethod == 1){
-          BT.println(Fehlermeldung);
-        }
-        return;
-      }
       if (SerialMethod == 0){
-          Serial.println(json_generator(double(feuchte), double(temperatur), widerstand));
+          Serial.println(json_string);
         }
       if (SerialMethod == 1){
-          BT.println(json_generator(double(feuchte), double(temperatur), widerstand));
+          BT.println(json_string);
         }
     }
     else{
