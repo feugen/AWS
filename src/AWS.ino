@@ -1,0 +1,112 @@
+// Connect pin 1 (on the left) of the sensor to +5V
+// NOTE: If using a board with 3.3V logic like an Arduino Due connect pin 1
+// to 3.3V instead of 5V!
+// Connect pin 2 of the sensor to whatever your DHTPIN is
+// Connect pin 4 (on the right) of the sensor to GROUND
+// Connect a 10K resistor from pin 2 (data) to pin 1 (power) of the sensor
+
+// Initialize DHT sensor.
+// Note that older versions of this library took an optional third parameter to
+// tweak the timings for faster processors.  This parameter is no longer needed
+// as the current DHT reading algorithm adjusts itself to work on faster procs.
+
+// Reading temperature or humidity takes about 250 milliseconds!
+// Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+
+#include <Arduino.h>
+#include "dht.h"
+#include <stdlib.h>
+#include <SoftwareSerial.h>
+
+#define DHTPIN 2     // Digitalpin an dem wir angeschlossen sind.
+#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+#define SerialMethod 1 //0 = USB, 1 = Bluetooth
+#define Fehlermeldung "Fehler beim Lesen des DHT Sensors!"
+
+DHT dht(DHTPIN, DHTTYPE);
+//Tx = 1, Rx = 0
+SoftwareSerial BT(1, 0);
+
+void setup() {
+  if (SerialMethod == 0){
+    Serial.begin(9600);
+    Serial.println("AWS - Arduino Wetter Server");
+  }
+  if (SerialMethod == 1){
+    BT.begin(9600);
+    Serial.println("AWS - Arduino Wetter Server");
+  }
+  dht.begin();
+}
+
+String json_generator(const double &feuchte, const double &temperatur, const int &widerstand){
+  char json_feuchte[5];
+  dtostrf(feuchte,3,1,json_feuchte);
+  
+  char json_temperatur[5];
+  dtostrf(temperatur,3,1,json_temperatur);
+
+  return "{\"Luftfeuchte\": " + String(json_feuchte) + ", " + "\"Temperatur\": " + String(json_temperatur) + ", " + "\"Photostrom\": " +  String(widerstand) + "}";
+}
+
+void loop() {
+  // Wartezeit zwischen den Messungen.
+  delay(1000);
+  
+  //Sensoren Variablen
+  float feuchte;
+  float temperatur;
+  
+  //Serialport Variablen
+  String serial_nachricht;
+  char serial_char;
+  int widerstand;
+  
+  if (SerialMethod == 0){
+    while (Serial.available()){
+    serial_char = Serial.read();
+    serial_nachricht.concat(serial_char);
+    }
+  }
+  if (SerialMethod == 1){
+    while (BT.available()){
+    serial_char = BT.read();
+    serial_nachricht.concat(serial_char);
+    }
+  }
+  
+  if (serial_nachricht != ""){
+    if (serial_nachricht == "sensor_anfrage"){
+      
+      //Lese die Sensoren aus
+      feuchte = dht.readHumidity();
+      temperatur = dht.readTemperature();
+      widerstand = analogRead(0);
+      
+      // Wenn das Auslesen Fehlschlägt so schreib die Meldung und versuch es nochmal.
+      if (isnan(feuchte) || isnan(temperatur)) {
+        if (SerialMethod == 0){
+          Serial.println(Fehlermeldung);
+        }
+        if (SerialMethod == 1){
+          BT.println(Fehlermeldung);
+        }
+        return;
+      }
+      if (SerialMethod == 0){
+          Serial.println(json_generator(double(feuchte), double(temperatur), widerstand));
+        }
+      if (SerialMethod == 1){
+          BT.println(json_generator(double(feuchte), double(temperatur), widerstand));
+        }
+    }
+    else{
+      if (SerialMethod == 0){
+          Serial.println(serial_nachricht);
+        }
+      if (SerialMethod == 1){
+          BT.println(serial_nachricht);
+        }
+      }
+   }
+}
