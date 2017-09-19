@@ -49,10 +49,62 @@ String json_generator(const double &feuchte, const double &temperatur, const int
   return "{\"Luftfeuchte\": " + String(json_feuchte) + ", " + "\"Temperatur\": " + String(json_temperatur) + ", " + "\"Photostrom\": " +  String(widerstand) + "}";
 }
 
-//Beinhaltet die aktuellen Messwerte
-String json_string = "";
+String seriell_auslesen(int modus){
+  String serial_nachricht = "";
+  char serial_char;
+  
+  //Serielle USB Verbindung
+  if (modus == 0){
+    while (Serial.available()){
+    serial_char = Serial.read();
+    serial_nachricht.concat(serial_char);
+    }
+  }
+  
+  //Serielle BT Verbindung
+  if (modus == 1){
+    while (BT.available()){
+    serial_char = BT.read();
+    serial_nachricht.concat(serial_char);
+    }
+  }
+  
+  return serial_nachricht;
+}
+
+boolean seriell_senden(int modus, const String &serial_anfrage, const String &json_string){
+  
+  boolean stat;
+  
+  if (serial_anfrage != ""){
+    if (serial_anfrage == "sensor_anfrage"){
+      if (modus == 0){
+          Serial.println(json_string);
+        }
+      if (modus == 1){
+          BT.println(json_string);
+        }
+    }
+   else{
+     if (modus == 0){
+       Serial.println(serial_anfrage);
+     }
+     if (modus == 1){
+       BT.println(serial_anfrage);
+     }
+   }
+   stat = true;
+ }
+ else{
+   stat = false;
+ }
+ return stat;
+}
 
 void loop() {
+  
+  //Beinhaltet die aktuellen Messwerte
+  String json_string = "";
   
   //Sensoren Variablen
   double feuchte = 0.0;
@@ -60,8 +112,7 @@ void loop() {
   double widerstand = 0.0;
   
   //Serialport Variablen
-  String serial_nachricht;
-  char serial_char;
+  String serial_anfrage;
   
   //Lese die Sensoren x mal aus
   int anzahl_messungen = 5;
@@ -94,35 +145,9 @@ void loop() {
   //Generiere das Json Objekt
   json_string = json_generator(feuchte, temperatur, widerstand);
   
-  if (SerialMethod == 0){
-    while (Serial.available()){
-    serial_char = Serial.read();
-    serial_nachricht.concat(serial_char);
-    }
-  }
-  if (SerialMethod == 1){
-    while (BT.available()){
-    serial_char = BT.read();
-    serial_nachricht.concat(serial_char);
-    }
-  }
+  //Lese die serielle Anfrage aus
+  serial_anfrage = seriell_auslesen(SerialMethod);
+  //Antworte auf die serielle Anfrage
+  seriell_senden(SerialMethod, serial_anfrage, json_string);
   
-  if (serial_nachricht != ""){
-    if (serial_nachricht == "sensor_anfrage"){
-      if (SerialMethod == 0){
-          Serial.println(json_string);
-        }
-      if (SerialMethod == 1){
-          BT.println(json_string);
-        }
-    }
-    else{
-      if (SerialMethod == 0){
-          Serial.println(serial_nachricht);
-        }
-      if (SerialMethod == 1){
-          BT.println(serial_nachricht);
-        }
-      }
-   }
 }
