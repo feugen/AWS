@@ -74,7 +74,7 @@ String json_generator(const double &feuchte, const double &temp_am2302, const do
   return "{\"Luftfeuchte\": " + String(json_feuchte) + ", " + "\"Temp_am2302\": " + String(json_temperatur_am2302)+ ", " + "\"Temp_bmp180\": " + String(json_temperatur_bmp180) + ", " + "\"Luftdruck\": " +  String(druckwert) + ", " + "\"Photostrom\": " + String(widerstand) +"}";
 }
 
-String seriell_auslesen(int modus){
+String seriell_auslesen(const int &modus){
   String serial_nachricht = "";
   char serial_char;
 
