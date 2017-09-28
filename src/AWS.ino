@@ -33,6 +33,9 @@ DHT dht(DHTPIN, DHTTYPE);
 SoftwareSerial Bluetooth(1, 0);
 SFE_BMP180 BMP180;
 
+long int startzeit = 0;
+int zielzeit = 10000; //Zielzeit in Millisekunden pro Durchgang
+
 void setup() {
   
   //Initialisierung der Serialverbindung
@@ -106,6 +109,8 @@ boolean seriell_senden(SoftwareSerial &Verbindungstyp, const String &serial_anfr
 }
 
 void loop() {
+  
+  startzeit = millis();
 
   char status;
   double T,P;
@@ -183,5 +188,7 @@ void loop() {
   serial_anfrage = seriell_auslesen(Verbindungstyp);
   //Antworte auf die serielle Anfrage
   seriell_senden(Verbindungstyp, serial_anfrage, json_string);
+  
+  delay(zielzeit - (millis() - startzeit));
 }
 
