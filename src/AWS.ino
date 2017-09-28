@@ -22,41 +22,32 @@
 
 #define DHTPIN 2     // Digitalpin an dem wir angeschlossen sind.
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
-#define SerialMethod 1 //0 = USB, 1 = Bluetooth
 #define Fehlermeldung "Fehler beim Lesen des DHT Sensors!"
 #define Hoehe 450.0 // Höhe in Aalen in Metern
 
+#define Verbindungstyp Bluetooth //Bluetooth oder Serial
+#define Versionsnummer "Version. 1.0"
+
 DHT dht(DHTPIN, DHTTYPE);
 //Tx = 1, Rx = 0
-SoftwareSerial BT(1, 0);
+SoftwareSerial Bluetooth(1, 0);
 SFE_BMP180 BMP180;
 
 void setup() {
-  if (SerialMethod == 0){
-    //Initialisierung der Serialverbindung
-    Serial.begin(9600);
-    Serial.println("AWS - Arduino Wetter Server");
+  
+  //Initialisierung der Serialverbindung
+  Verbindungstyp.begin(9600);
+  Serial.println("AWS - Arduino Wetter Server");
+  Serial.println(Versionsnummer);
 
-    //Initialisieren den BMP180 Sensor
-    if (BMP180.begin()){
-      Serial.println("BMP180 Initialisierung erfolgreich");
-    }
-    else{
-      Serial.println("BMP180 Initialisierung nicht erfolgreich\n\n");
-    }
+  //Initialisieren den BMP180 Sensor
+  if (BMP180.begin()){
+    Serial.println("BMP180 Initialisierung erfolgreich");
   }
-  if (SerialMethod == 1){
-    //Initialisierung der Bluetoothverbindung
-    BT.begin(9600);
-    Serial.println("AWS - Arduino Wetter Server");
-    //Initialisieren den BMP180 Sensor
-    if (BMP180.begin()){
-      Serial.println("BMP180 Initialisierung erfolgreich");
-    }
-    else{
-      Serial.println("BMP180 Initialisierung nicht erfolgreich\n\n");
-    }
+  else{
+    Serial.println("BMP180 Initialisierung nicht erfolgreich\n\n");
   }
+  
   dht.begin();
 }
 
@@ -74,49 +65,37 @@ String json_generator(const double &feuchte, const double &temp_am2302, const do
   return "{\"Luftfeuchte\": " + String(json_feuchte) + ", " + "\"Temp_am2302\": " + String(json_temperatur_am2302)+ ", " + "\"Temp_bmp180\": " + String(json_temperatur_bmp180) + ", " + "\"Luftdruck\": " +  String(druckwert) + ", " + "\"Photostrom\": " + String(widerstand) +"}";
 }
 
-String seriell_auslesen(const int &modus){
+String seriell_auslesen(SoftwareSerial &Verbindung){
+  
   String serial_nachricht = "";
   char serial_char;
-
-  //Serielle USB Verbindung
-  if (modus == 0){
-    while (Serial.available()){
-      serial_char = Serial.read();
+  
+  while (Verbindung.available()){
+      serial_char = Verbindung.read();
       serial_nachricht.concat(serial_char);
+      
     }
-  }
-
-  //Serielle BT Verbindung
-  if (modus == 1){
-    while (BT.available()){
-      serial_char = BT.read();
-      serial_nachricht.concat(serial_char);
-    }
-  }
 
   return serial_nachricht;
 }
 
-boolean seriell_senden(int modus, const String &serial_anfrage, const String &json_string){
+boolean seriell_senden(SoftwareSerial &Verbindungstyp, const String &serial_anfrage, const String &json_string){
 
   boolean stat;
-
+  
+  //Es sollen immer die Sensordaten gesendet werden, egal ob was angefragt wurde oder nicht
+  Verbindungstyp.println(json_string);
+  
+  //Zusätzlich sollen Daten je nach Anfrage geliefert werden
   if (serial_anfrage != ""){
     if (serial_anfrage == "sensor_anfrage"){
-      if (modus == 0){
-        Serial.println(json_string);
-      }
-      if (modus == 1){
-        BT.println(json_string);
-      }
+      Verbindungstyp.println(json_string);
+    }
+    if (serial_anfrage == "version"){
+      Verbindungstyp.println("{\"Versionsnummer\": " + String(Versionsnummer) + "}");
     }
     else{
-      if (modus == 0){
-        Serial.println(serial_anfrage);
-      }
-      if (modus == 1){
-        BT.println(serial_anfrage);
-      }
+      Verbindungstyp.println("Achtung, " + serial_anfrage + " ist ein falsches Schlüsselwort, keine Funktion hinterlegt.");
     }
     stat = true;
   }
@@ -187,12 +166,7 @@ void loop() {
 
     // Wenn das Auslesen Fehlschlägt so schreib die Meldung und versuch es nochmal.
     if (isnan(feuchte) || isnan(temp_am2302)) {
-      if (SerialMethod == 0){
-        Serial.println(Fehlermeldung);
-      }
-      if (SerialMethod == 1){
-        BT.println(Fehlermeldung);
-      }
+      Verbindungstyp.println(Fehlermeldung);
       return;
     }
   }
@@ -206,8 +180,8 @@ void loop() {
   json_string = json_generator(feuchte, temp_am2302, temp_bmp180, druckwert, widerstand);
 
   //Lese die serielle Anfrage aus
-  serial_anfrage = seriell_auslesen(SerialMethod);
+  serial_anfrage = seriell_auslesen(Verbindungstyp);
   //Antworte auf die serielle Anfrage
-  seriell_senden(SerialMethod, serial_anfrage, json_string);
+  seriell_senden(Verbindungstyp, serial_anfrage, json_string);
 }
 
