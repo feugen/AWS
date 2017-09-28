@@ -189,6 +189,8 @@ void loop() {
   //Antworte auf die serielle Anfrage
   seriell_senden(Verbindungstyp, serial_anfrage, json_string);
   
-  delay(zielzeit - (millis() - startzeit));
+  if ((millis() - startzeit) < zielzeit){
+    delay(zielzeit - (millis() - startzeit));
+  }
 }
 
