@@ -33,8 +33,8 @@ DHT dht(DHTPIN, DHTTYPE);
 SoftwareSerial Bluetooth(1, 0);
 SFE_BMP180 BMP180;
 
-long int startzeit = 0;
-int zielzeit = 10000; //Zielzeit in Millisekunden pro Durchgang
+unsigned long int startzeit = 0;
+unsigned int zielzeit = 10000; //Zielzeit in Millisekunden pro Durchgang
 
 void setup() {
   
@@ -76,9 +76,7 @@ String seriell_auslesen(SoftwareSerial &Verbindung){
   while (Verbindung.available()){
       serial_char = Verbindung.read();
       serial_nachricht.concat(serial_char);
-      
     }
-
   return serial_nachricht;
 }
 
@@ -86,10 +84,7 @@ boolean seriell_senden(SoftwareSerial &Verbindungstyp, const String &serial_anfr
 
   boolean stat;
   
-  //Es sollen immer die Sensordaten gesendet werden, egal ob was angefragt wurde oder nicht
-  Verbindungstyp.println(json_string);
-  
-  //Zusätzlich sollen Daten je nach Anfrage geliefert werden
+  //Es sollen Daten je nach Anfrage geliefert werden
   if (serial_anfrage != ""){
     if (serial_anfrage == "sensor_anfrage"){
       Verbindungstyp.println(json_string);
@@ -103,6 +98,9 @@ boolean seriell_senden(SoftwareSerial &Verbindungstyp, const String &serial_anfr
     stat = true;
   }
   else{
+    //Es sollen immer die Sensordaten gesendet werden, wenn keine manuelle Abfrage
+    Verbindungstyp.println(json_string);
+    //Da keine manuelle Anfrage
     stat = false;
   }
   return stat;
@@ -156,7 +154,7 @@ void loop() {
   int druckwert = static_cast<int>(P);
 
   //Serialport Variablen
-  String serial_anfrage;
+  String serial_anfrage = "";
 
   //Lese die Sensoren x mal aus
   int anzahl_messungen = 5;
@@ -184,13 +182,17 @@ void loop() {
   //Generiere das Json Objekt
   json_string = json_generator(feuchte, temp_am2302, temp_bmp180, druckwert, widerstand);
 
-  //Lese die serielle Anfrage aus
-  serial_anfrage = seriell_auslesen(Verbindungstyp);
-  //Antworte auf die serielle Anfrage
+  //Lese die Daten aus und sende sie seriell
   seriell_senden(Verbindungstyp, serial_anfrage, json_string);
   
-  if ((millis() - startzeit) < zielzeit){
-    delay(zielzeit - (millis() - startzeit));
+  //In der Wartezeit soll man in der Lage sein, Infos auzutauschen, das passiert hier
+  while ((millis() - startzeit) < zielzeit){
+    //Lese die serielle Anfrage aus
+    serial_anfrage = seriell_auslesen(Verbindungstyp);
+    //Antworte auf die serielle Anfrage, falls was da ist
+    if (serial_anfrage != ""){
+      seriell_senden(Verbindungstyp, serial_anfrage, json_string);
+    }
   }
 }
 
