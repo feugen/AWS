@@ -23,10 +23,14 @@
 #define DHTPIN 2     // Digitalpin an dem wir angeschlossen sind.
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 #define Fehlermeldung "Fehler beim Lesen des DHT Sensors!"
-#define Hoehe 450.0 // Höhe in Aalen in Metern
+#define Hoehe 520.0 // Höhe in München in Metern
 
-#define Verbindungstyp Bluetooth //Bluetooth oder Serial
-#define Versionsnummer "Version. 1.0"
+//ACHTUNG!!!ACHTUNG!!!ACUHTUNG!!! Für USB: Serial und HardwareSerial und für Bluetooth: Bluetooth und SoftwareSerial
+//in den nächsten beiden Zeilen einfügen.
+#define Verbindungstyp Serial //Bluetooth oder Serial
+#define VerbindungsDatentyp HardwareSerial //SoftwareSerial (Bluetooth) oder HardwareSerial(USB)
+
+#define Versionsnummer "Version 1.1"
 
 DHT dht(DHTPIN, DHTTYPE);
 //Tx = 1, Rx = 0
@@ -65,22 +69,22 @@ String json_generator(const double &feuchte, const double &temp_am2302, const do
   char json_temperatur_bmp180[5];
   dtostrf(temp_bmp180,3,1,json_temperatur_bmp180);
 
-  return "{\"Luftfeuchte\": " + String(json_feuchte) + ", " + "\"Temp_am2302\": " + String(json_temperatur_am2302)+ ", " + "\"Temp_bmp180\": " + String(json_temperatur_bmp180) + ", " + "\"Luftdruck\": " +  String(druckwert) + ", " + "\"Photostrom\": " + String(widerstand) +"}";
+  return "{\"Luftfeuchte\": " + String(json_feuchte) + ", " + "\"Temperatur\": " + "{\"Temp_am2302\": " + String(json_temperatur_am2302)+ ", " + "\"Temp_bmp180\": " + String(json_temperatur_bmp180) + "}, " + "\"Luftdruck\": " +  String(druckwert) + ", " + "\"Photostrom\": " + String(widerstand) +"}";
 }
 
-String seriell_auslesen(SoftwareSerial &Verbindung){
+String seriell_auslesen(VerbindungsDatentyp &Verbindungstyp){
   
   String serial_nachricht = "";
   char serial_char;
   
-  while (Verbindung.available()){
-      serial_char = Verbindung.read();
+  while (Verbindungstyp.available()){
+      serial_char = Verbindungstyp.read();
       serial_nachricht.concat(serial_char);
     }
   return serial_nachricht;
 }
 
-boolean seriell_senden(SoftwareSerial &Verbindungstyp, const String &serial_anfrage, const String &json_string){
+boolean seriell_senden(VerbindungsDatentyp &Verbindungstyp, const String &serial_anfrage, const String &json_string){
 
   boolean stat;
   
